@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/assets/brain.png?v=3">
+  <link rel="shortcut icon" type="image/png" href="/assets/brain.png?v=3">
+  <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="/config/firebase_config.js"></script>
+  <script src="/scripts/login.js" defer></script>
+  <link rel="stylesheet" href="/styles/form.css" />
+  <title>Login</title>
+</head>
+<body>
+  <div id="particles-js"></div>
+  <div class="center">
+    <div class="container">
+      <div class="form_area">
+        <p class="title">LOGIN</p>
+        <form id="login-form">
+          <div class="form_group">
+            <label class="sub_title" for="username">Username</label>
+            <div class="input_with_icon">
+                <input placeholder="Enter your username" class="form_style" type="text" id="username" required />
+            </div>
+            <span class="error_message" id="username-error"></span>
+          </div>
+
+          <div class="form_group password_group">
+            <label class="sub_title" for="password">Password</label>
+            <div class="input_with_icon">
+              <input placeholder="Enter your password" class="form_style" type="password" id="password" required />
+              <span class="toggle_icon" id="toggle-password">👁️</span>
+            </div>
+            <span class="error_message" id="password-error"></span>
+          </div>
+
+          <button class="btn" type="submit">Login</button>
+          <p style="  color: #bdbdbd;">Don't have an Account? <a class="link" href="/pages/signup.html">Sign Up</a></p>
+        </form>
+      </div>
+    </div>
+  </div>
+<footer class="footer">
+    © 2025 Developed by the Computing Club
+</footer>
+  <script>
+    particlesJS("particles-js", {
+      particles: {
+        number: { value: 70, density: { enable: true, value_area: 800 } },
+        color: { value: "#ffffff" },
+        shape: { type: "circle" },
+        opacity: { value: 0.5 },
+        size: { value: 4, random: true },
+        move: { enable: true, speed: 2 },
+        line_linked: {
+          enable: true,
+          distance: 150,
+          color: "#ffffff",
+          opacity: 0.5,
+          width: 1
+        }
+      },
+      interactivity: {
+        events: { onhover: { enable: true, mode: "grab" } },
+        modes: {
+          grab: { distance: 200, line_linked: { opacity: 0.8 } }
+        }
+      },
+      retina_detect: true
+    });
+  </script>
+</body>
+</html>

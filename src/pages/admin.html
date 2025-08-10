@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Admin Panel</title>
+<link rel="icon" type="image/png" href="/assets/brain.png?v=3">
+<link rel="shortcut icon" type="image/png" href="/assets/brain.png?v=3">
+<link rel="stylesheet" href="/styles/admin.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<!-- Firebase App (the core Firebase SDK) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+
+<!-- Firestore SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+<!-- Your Firebase config file -->
+<script src="/config/firebase_config.js"></script>
+</head>
+<body>
+  <!-- topbar -->
+  <div class="topbar">
+    <div class="hamb-left">
+      <!-- Hamburger on the LEFT (user-provided behavior will be used) -->
+      <div class="hamburger" id="hamburger" aria-label="Toggle menu">
+        <div class="line1"></div>
+        <div class="line2"></div>
+        <div class="line3"></div>
+      </div>
+      <div class="brand-title">Quiz Admin</div>
+    </div>
+
+    <!-- navLinks required by your snippet (kept but empty) -->
+    <ul class="nav-links" id="navLinks"></ul>
+  </div>
+
+  <!-- drawer/sidebar (using your drawer markup concept) -->
+  <div id="drawer-navigation" aria-labelledby="drawer-navigation-label" tabindex="-1">
+    <h5 id="drawer-navigation-label" class="small-muted">Menu</h5>
+
+    <!-- red close button on the RIGHT inside the drawer -->
+    <button type="button" data-drawer-hide="drawer-navigation" aria-controls="drawer-navigation" title="Close menu"><i class="fa fa-times"></i></button>
+
+    <div class="py-4 overflow-y-auto">
+      <ul class="space-y-2 font-medium" id="drawerMenu">
+        <li><a href="#" data-page="dashboard"><i class="fa fa-home"></i><span style="margin-left:8px">Dashboard</span></a></li>
+        <li><a href="#" data-page="quiz"><i class="fa fa-gamepad"></i><span style="margin-left:8px">Quiz Controls</span></a></li>
+        <li><a href="#" data-page="questions"><i class="fa fa-question-circle"></i><span style="margin-left:8px">Question Controls</span></a></li>
+        <li><a href="#" data-page="data"><i class="fa fa-database"></i><span style="margin-left:8px">Data Controls</span></a></li>
+        <li><a href="#" data-page="live"><i class="fa fa-broadcast-tower"></i><span style="margin-left:8px">Live Interaction</span></a></li>
+        <li><a href="#" data-page="settings"><i class="fa fa-cog"></i><span style="margin-left:8px">Settings</span></a></li>
+
+        <li style="margin-top:12px"><button class="btn" id="logoutSide"><i class="fa fa-sign-out-alt" style="margin-right:8px;"></i> Logout</button></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- main content -->
+  <div class="content-wrapper" id="contentWrapper">
+    <main>
+      <header style="padding:6px 0 18px 0"><div id="pageHeading" style="font-weight:800">Dashboard</div></header>
+
+      <!-- Dashboard (default view) -->
+      <section id="page-dashboard">
+        <div class="center-wrap">
+          <div class="card" id="userCard">
+            <h4>User Stats</h4>
+            <div class="stat-grid">
+              <div class="stat">
+                <div class="label">Active users (7d)</div>
+                <div class="num" id="activeUsers">0</div>
+              </div>
+              <div class="stat">
+                <div class="label">Total joined</div>
+                <div class="num" id="totalUsers">0</div>
+              </div>
+            </div>
+            <div style="margin-top:.8rem;color:var(--muted);font-size:.9rem">Client-side mock data (replace with Firestore when ready)</div>
+          </div>
+
+          <div class="card" id="questionsCard">
+            <h4>Question Stats</h4>
+            <div style="display:flex;gap:.5rem;align-items:center;justify-content:space-between">
+              <div class="small-muted">Total questions: <strong id="qCount">0</strong></div>
+              <div class="small-muted">Order: <strong>order</strong> (asc)</div>
+            </div>
+            <div class="q-list" id="dashboardQuestions"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quiz -->
+      <section id="page-quiz" style="display:none">
+        <div class="center-wrap">
+        <div class="card">
+          <h4>🎯 Quiz Controls</h4>
+          <div class="controls">
+            <button data-action="start"><i class="fa fa-play"></i> Start</button>
+            <button data-action="pause"><i class="fa fa-pause"></i> Pause</button>
+            <button data-action="resume"><i class="fa fa-play-circle"></i> Resume</button>
+            <button data-action="end"><i class="fa fa-stop"></i> End</button>
+            <button data-action="reveal"><i class="fa fa-eye"></i> Reveal Answer</button>
+            <button data-action="next"><i class="fa fa-forward"></i> Next</button>
+            <button data-action="prev"><i class="fa fa-backward"></i> Prev</button>
+            <button id="openTimerBtn"><i class="fa fa-clock"></i> Set Timer</button>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <!-- Questions -->
+      <section id="page-questions" style="display:none">
+        <div class="center-wrap">
+        <div class="card">
+          <h4>🧠 Question Controls</h4>
+          <div class="controls">
+            <button id="btnAdd"><i class="fa fa-plus"></i> Add</button>
+            <button id="btnEdit"><i class="fa fa-edit"></i> Edit</button>
+            <button id="btnDelete"><i class="fa fa-trash"></i> Delete</button>
+            <button id="btnOrder"><i class="fa fa-sort"></i> Order</button>
+            <button id="btnAttach"><i class="fa fa-paperclip"></i> Attach</button>
+          </div>
+          <div style="margin-top:1rem;color:var(--muted)">Questions (live)</div>
+          <div class="q-list" id="questionsList"></div>
+        </div>
+        </div>
+      </section>
+
+      <!-- Data -->
+      <section id="page-data" style="display:none">
+        <div class="center-wrap">
+        <div class="card">
+          <h4>📋 Data Controls</h4>
+          <div class="controls">
+            <button id="viewLeaderboard"><i class="fa fa-list"></i> Leaderboard</button>
+            <button id="resetScores"><i class="fa fa-undo"></i> Reset Scores</button>
+            <button id="exportResults"><i class="fa fa-file-export"></i> Export</button>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <!-- Live -->
+      <section id="page-live" style="display:none">
+        <div class="center-wrap">
+        <div class="card">
+          <h4>💬 Live Interaction</h4>
+          <div class="controls">
+            <button id="wordwall"><i class="fa fa-stream"></i> Wordwall</button>
+            <button id="wordcloud"><i class="fa fa-cloud"></i> Wordcloud</button>
+            <button id="broadcast"><i class="fa fa-bullhorn"></i> Broadcast</button>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section id="page-settings" style="display:none">
+        <div class="center-wrap">
+        <div class="card">
+          <h4>⚙️ Settings</h4>
+          <div class="controls">
+            <button id="setTitle"><i class="fa fa-heading"></i> Set Title</button>
+            <button id="manageAdmins"><i class="fa fa-user-cog"></i> Manage Admins</button>
+            <button id="toggleTheme"><i class="fa fa-adjust"></i> Toggle Theme</button>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <div class="toast-wrap" id="toasts"></div>
+    </main>
+  </div>
+
+  <!-- overlays & modals -->
+  <div class="overlay" id="overlay"></div>
+
+  <div class="overlay" id="qModalOverlay" style="display:none;align-items:center;justify-content:center">
+    <div class="modal">
+      <h4 id="modalTitle">Modal</h4>
+      <form id="modalForm">
+        <div class="row">
+          <div style="flex:1;min-width:220px">
+            <label>Question Text</label>
+            <textarea id="m_text" placeholder="Enter question"></textarea>
+          </div>
+          <div style="flex:1;min-width:220px">
+            <label>Answer</label>
+            <input id="m_answer" placeholder="Correct answer" />
+            <label>Bonus Time (s)</label>
+            <input id="m_bonus" type="number" placeholder="0" />
+            <label>Order</label>
+            <input id="m_order" type="number" placeholder="1" />
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" id="modalCancel">Cancel</button>
+          <button type="submit" class="btn primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="overlay" id="timerOverlay" style="display:none;align-items:center;justify-content:center">
+    <div class="modal">
+      <h4>Set Timer (seconds)</h4>
+      <input id="timerValue" type="number" min="5" placeholder="30" />
+      <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.8rem">
+        <button class="btn" id="timerCancel">Cancel</button>
+        <button class="btn primary" id="timerSet">Set</button>
+      </div>
+    </div>
+  </div>
+
+<script src="/scripts/admin.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1e1e1e" />
+  <title>Quiz Page</title>
+  <link rel="icon" type="image/png" href="/assets/brain.png?v=3">
+  <link rel="shortcut icon" type="image/png" href="/assets/brain.png?v=3">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- Firebase (v8 for browser) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  
+  <!-- Your Firebase Config -->
+  <script src="/config/firebase_config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+  <link rel="stylesheet" href="/styles/user.css" />
+</head>
+
+<body>
+  <div class="background">
+    <!-- ✅ Navigation Bar -->
+    <nav class="navbar">
+      <div class="username" id="usernameDisplay">User</div>
+      <div class="hamburger" id="hamburger">
+        <div class="line1"></div>
+        <div class="line2"></div>
+        <div class="line3"></div>
+      </div>
+      <ul class="nav-links" id="navLinks">
+        <li><button class="join-button" onclick="logout()">Logout</button></li>
+      </ul>
+    </nav>
+
+    <!-- ✅ Particles Background -->
+    <div id="particles-js"></div>
+
+    <!-- ✅ Quiz Container -->
+    <div class="quiz-container">
+      
+      <div class="quiz-header">
+        <h2 id="question">What is the capital of France?</h2>
+      </div>
+      <div class="quiz-body" style="display:none;">
+        <input type="text" id="answerInput" placeholder="Enter your answer..." />
+        <button id="submitBtn" onclick="submitAnswer()">Submit</button>
+      </div>
+      <div id="waitingMessage" style="display:none; font-size:1.5rem; color:#ccc; text-align:center; margin-top:20px; min-height:40px; display:flex; justify-content:center; align-items:center; height:50px; user-select:none;">
+  Waiting for admin to reveal the answer...
+</div>
+<div id="submittedAnswerDisplay" style="margin-top: 10px; font-weight: bold;"></div>
+
+      <div class="quiz-footer">
+        <span id="timer" class="timer-box timer-green">30s</span>
+        <span id="points" class="points-box">Points: 0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ Footer -->
+  <footer class="footer">
+    © 2025 Developed by the Computing Club
+  </footer>
+
+  <!-- ✅ JS Scripts -->
+  <script src="/scripts/user.js" defer></script>
+  <script>
+    particlesJS("particles-js", {
+      particles: {
+        number: { value: 70, density: { enable: true, value_area: 800 } },
+        color: { value: "#ffffff" },
+        shape: { type: "circle" },
+        opacity: { value: 0.5 },
+        size: { value: 4, random: true },
+        move: { enable: true, speed: 2 },
+        line_linked: {
+          enable: true,
+          distance: 150,
+          color: "#ffffff",
+          opacity: 1,
+          width: 1
+        }
+      },
+      interactivity: {
+        events: { onhover: { enable: true, mode: "grab" } },
+        modes: {
+          grab: { distance: 200, line_linked: { opacity: 0.8 } }
+        }
+      },
+      retina_detect: true
+    });
+  </script>
+</body>
+</html>
