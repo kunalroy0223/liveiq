@@ -5,9 +5,57 @@ let currentQuestion = null;
 let currentQuestionId = null;
 let wasPaused = false;
 let revealShownForQuestion = null;
-let userSubmittedAnswer = null; // store user's current submitted answer (lowercase)
+let userSubmittedAnswer = null;
 
-// Cache DOM elements
+// Audio files
+const correctSound = new Audio("../assets/correct.mp3");
+const incorrectSound = new Audio("../assets/incorrect.mp3");
+const submitSound = new Audio("../assets/submit.mp3");
+const errorSound = new Audio("../assets/error.mp3");
+const successSound = new Audio("../assets/success.mp3");
+const lowTimeSound = new Audio("../assets/warning.mp3");
+const bgm = new Audio("../assets/bgm.mp3");
+bgm.loop = true;
+bgm.volume = 0;
+
+let bgmFading = false;
+let bgmPlaying = false;
+
+// Fade helper
+function fadeAudio(audio, targetVolume, duration, callback) {
+    if (!audio) return;
+    bgmFading = true;
+    const step = (targetVolume - audio.volume) / (duration / 50);
+    const fade = setInterval(() => {
+        let newVolume = audio.volume + step;
+        if ((step > 0 && newVolume >= targetVolume) || (step < 0 && newVolume <= targetVolume)) {
+            audio.volume = targetVolume;
+            clearInterval(fade);
+            bgmFading = false;
+            if (callback) callback();
+        } else {
+            audio.volume = Math.max(0, Math.min(1, newVolume));
+        }
+    }, 50);
+}
+
+function playBGM() {
+    if (bgmPlaying || bgmFading) return;
+    bgmPlaying = true;
+    bgm.play().catch(e => console.warn("BGM play error:", e));
+    fadeAudio(bgm, 0.5, 1500);
+}
+
+function stopBGM() {
+    if (!bgmPlaying || bgmFading) return;
+    fadeAudio(bgm, 0, 1500, () => {
+        bgm.pause();
+        bgm.currentTime = 0;
+        bgmPlaying = false;
+    });
+}
+
+// DOM cache
 const questionEl = document.getElementById('question');
 const answerInput = document.getElementById('answerInput');
 const submitBtn = document.getElementById('submitBtn');
@@ -32,6 +80,7 @@ function setQuizActive(active, message) {
     pointsEl.style.visibility = active ? 'visible' : 'hidden';
 
     if (!active) {
+        playBGM();
         questionEl.innerHTML = `
           <div style="display:flex; flex-direction: column; align-items: center; gap: 12px;">
             <div class="loader"></div>
@@ -45,6 +94,7 @@ function setQuizActive(active, message) {
         waitingMessageEl.style.display = 'none';
         updateSubmittedAnswerDisplay(null);
     } else {
+        stopBGM();
         questionEl.textContent = currentQuestion?.questionText || "No question";
         quizBody.style.display = 'flex';
         answerInput.value = "";
@@ -65,16 +115,24 @@ function startTimer() {
     answerInput.disabled = false;
     waitingMessageEl.style.display = 'none';
 
+    let lowTimeSoundPlayed = false;
+
     timerInterval = setInterval(() => {
         timeLeft--;
         updateTimerColor(timeLeft);
         updateTimerDisplay();
+
+        if (timeLeft <= 10 && !lowTimeSoundPlayed && timeLeft > 0) {
+            lowTimeSound.play();
+            lowTimeSoundPlayed = true;
+        }
 
         if (timeLeft <= 0) {
             timeLeft = 0;
             clearInterval(timerInterval);
             if (submitBtn) submitBtn.disabled = true;
             answerInput.disabled = true;
+            errorSound.play();
             showPopup("⏰ Time's up!", "error");
             submitAnswer(true);
 
@@ -126,24 +184,24 @@ function updateSubmittedAnswerDisplay(answer) {
 
 async function submitAnswer(autoSubmit = false) {
     clearInterval(timerInterval);
-
     if (answerInput.disabled) return;
 
     const userAnswer = answerInput.value.trim();
     if (!autoSubmit && !userAnswer) {
+        errorSound.play();
         showPopup("Please enter an answer.", "error");
         return;
     }
 
     userSubmittedAnswer = userAnswer.toLowerCase();
 
-    // Save answer locally for this question to persist across reloads
     if (currentQuestionId) {
         sessionStorage.setItem(`answer_${currentQuestionId}`, userSubmittedAnswer);
     }
 
     const userId = sessionStorage.getItem('userId');
     if (!userId || !currentQuestionId) {
+        errorSound.play();
         showPopup("User or question not initialized.", "error");
         return;
     }
@@ -151,21 +209,21 @@ async function submitAnswer(autoSubmit = false) {
     if (submitBtn) submitBtn.disabled = true;
     answerInput.disabled = true;
 
+    submitSound.play();
+
     try {
-        // No Firestore save as per user request
+        successSound.play();
         showPopup(`✅ Answer submitted!`, "success");
-
         updateSubmittedAnswerDisplay(userAnswer);
-
         quizBody.style.display = 'none';
         waitingMessageEl.innerHTML = `
           <div class="loader"></div>
           <div style="margin-left:10px;">Waiting for admin to reveal the answer...</div>
         `;
         waitingMessageEl.style.display = 'flex';
-
     } catch (err) {
         console.error(err);
+        errorSound.play();
         showPopup("Failed to submit answer.", "error");
         if (submitBtn) submitBtn.disabled = false;
         answerInput.disabled = false;
@@ -184,6 +242,7 @@ function showPopup(message, type = "info") {
     }, 1800);
 }
 
+// Navigation
 const hamburger = document.getElementById('hamburger');
 const navLinks = document.getElementById('navLinks');
 hamburger.addEventListener('click', () => {
@@ -199,6 +258,7 @@ function logout() {
     window.location.href = '../pages/login.html';
 }
 
+// Firestore live listener
 const liveDoc = db.collection('live').doc('current');
 liveDoc.onSnapshot(async (doc) => {
     if (!doc.exists) return;
@@ -206,23 +266,24 @@ liveDoc.onSnapshot(async (doc) => {
     console.log("Live quiz data:", data);
 
     if (data.isStarted && !data.isPaused) {
+        stopBGM();
         if (!data.activeQuestionRef && currentQuestionId) {
             data.activeQuestionRef = db.collection('questions').doc(currentQuestionId);
-            console.log("Reusing previous activeQuestionRef:", currentQuestionId);
         }
     }
 
     if (data.isStarted) {
         if (data.isPaused) {
+            playBGM();
             if (!wasPaused) {
                 pauseTimer();
                 showPopup("Quiz Paused", "info");
                 answerInput.disabled = true;
                 if (submitBtn) submitBtn.disabled = true;
                 wasPaused = true;
-                waitingMessageEl.style.display = 'none';
             }
         } else {
+            stopBGM();
             if (wasPaused) {
                 setQuizActive(true);
                 showPopup("Quiz resumed by admin", "success");
@@ -230,13 +291,12 @@ liveDoc.onSnapshot(async (doc) => {
                 if (submitBtn) submitBtn.disabled = false;
                 wasPaused = false;
                 if (!data.revealAnswer) startTimer();
-                waitingMessageEl.style.display = 'none';
             } else {
                 if (!data.revealAnswer) setQuizActive(true);
-                waitingMessageEl.style.display = 'none';
             }
         }
     } else {
+        playBGM();
         pauseTimer();
         setQuizActive(false, "Quiz has ended or is not started yet.");
         answerInput.disabled = true;
@@ -245,7 +305,6 @@ liveDoc.onSnapshot(async (doc) => {
         currentQuestion = null;
         currentQuestionId = null;
         revealShownForQuestion = null;
-        waitingMessageEl.style.display = 'none';
         updateSubmittedAnswerDisplay(null);
         return;
     }
@@ -253,7 +312,7 @@ liveDoc.onSnapshot(async (doc) => {
     if (data.activeQuestionRef) {
         try {
             let qDoc;
-            if (data.activeQuestionRef && typeof data.activeQuestionRef.get === 'function') {
+            if (typeof data.activeQuestionRef.get === 'function') {
                 qDoc = await data.activeQuestionRef.get();
             } else if (typeof data.activeQuestionRef === 'string') {
                 qDoc = await db.collection('questions').doc(data.activeQuestionRef).get();
@@ -261,7 +320,6 @@ liveDoc.onSnapshot(async (doc) => {
                 questionEl.textContent = "No active question set.";
                 quizBody.style.display = 'none';
                 pauseTimer();
-                waitingMessageEl.style.display = 'none';
                 updateSubmittedAnswerDisplay(null);
                 return;
             }
@@ -277,7 +335,6 @@ liveDoc.onSnapshot(async (doc) => {
                 questionEl.textContent = currentQuestion.questionText || "No question";
                 answerInput.value = "";
 
-                // Load submitted answer from sessionStorage if any
                 const storedAnswer = sessionStorage.getItem(`answer_${currentQuestionId}`);
                 if (storedAnswer) {
                     userSubmittedAnswer = storedAnswer;
@@ -293,11 +350,8 @@ liveDoc.onSnapshot(async (doc) => {
                         answerInput.disabled = false;
                         if (submitBtn) submitBtn.disabled = false;
                         quizBody.style.display = 'flex';
-                        waitingMessageEl.style.display = 'none';
                     } else {
-                        // Reveal phase: hide inputs, stop timer
                         quizBody.style.display = 'none';
-                        waitingMessageEl.style.display = 'none';
                         pauseTimer();
                     }
                 } else {
@@ -305,13 +359,11 @@ liveDoc.onSnapshot(async (doc) => {
                     if (submitBtn) submitBtn.disabled = true;
                     pauseTimer();
                     quizBody.style.display = 'none';
-                    waitingMessageEl.style.display = 'none';
                 }
             } else {
                 questionEl.textContent = "Question not found.";
                 quizBody.style.display = 'none';
                 pauseTimer();
-                waitingMessageEl.style.display = 'none';
                 updateSubmittedAnswerDisplay(null);
             }
         } catch (err) {
@@ -319,7 +371,6 @@ liveDoc.onSnapshot(async (doc) => {
             questionEl.textContent = "Failed to load question.";
             quizBody.style.display = 'none';
             pauseTimer();
-            waitingMessageEl.style.display = 'none';
             updateSubmittedAnswerDisplay(null);
         }
     } else {
@@ -331,18 +382,13 @@ liveDoc.onSnapshot(async (doc) => {
         `;
         quizBody.style.display = 'none';
         pauseTimer();
-        waitingMessageEl.style.display = 'none';
         updateSubmittedAnswerDisplay(null);
     }
 
-    // On answer reveal
     if (data.revealAnswer && revealShownForQuestion !== currentQuestionId) {
         revealShownForQuestion = currentQuestionId;
-
         const correctAnswer = (currentQuestion?.answer || "").toLowerCase();
         const userId = sessionStorage.getItem('userId');
-
-        // ALWAYS get the answer from sessionStorage at reveal to avoid lost state
         const storedAnswer = sessionStorage.getItem(`answer_${currentQuestionId}`);
 
         if (!storedAnswer) {
@@ -366,23 +412,22 @@ liveDoc.onSnapshot(async (doc) => {
                     }
                 }
 
+                correctSound.play();
                 showPopup(`🎉 Congratulations! You earned ${awardedPoints} points.`, 'success');
             } else {
+                incorrectSound.play();
                 showPopup(`Wrong! Correct answer: ${correctAnswer}`, 'error');
             }
             updateSubmittedAnswerDisplay(storedAnswer);
         }
 
-        waitingMessageEl.style.display = 'none';
         quizBody.style.display = 'none';
         pauseTimer();
     }
 });
 
 window.onload = () => {
-    console.log("Loaded page, username:", sessionStorage.getItem("username"), "userId:", sessionStorage.getItem("userId"));
     displayUsername();
     setQuizActive(false, "Waiting for admin to start the quiz...");
-    waitingMessageEl.style.display = 'none';
     updateSubmittedAnswerDisplay(null);
 };

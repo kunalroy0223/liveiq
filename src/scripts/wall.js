@@ -21,6 +21,40 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* =======================
+     SOUND EFFECTS SETUP + BGM
+     ======================= */
+  const sounds = {
+    reveal: new Audio('../assets/reveal.mp3'),
+    error: new Audio('../assets/error.mp3'),
+    success: new Audio('../assets/success.mp3'),
+    warning: new Audio('../assets/warning.mp3'),
+  };
+function playSound(audio) {
+  if (!audio) return;
+  audio.currentTime = 0;
+  audio.play().catch(() => { /* ignore play errors, e.g. user not interacted */ });
+}
+
+ // Background music audio
+const bgm = new Audio('../assets/bgm.mp3');
+bgm.loop = true;
+bgm.volume = 0.75; // Set volume directly
+
+function playBgm() {
+  if (bgm.paused) {
+    bgm.volume = 0.75;
+    bgm.play().catch(() => { /* ignore play errors */ });
+  }
+}
+
+function pauseBgm() {
+  if (!bgm.paused) {
+    bgm.pause();
+  }
+}
+
+
+  /* =======================
      DYNAMIC UI ELEMENTS
      (timer circle, answer reveal,
       admin overlay, popup container)
@@ -178,6 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastOverlayMessage = '';
   let lastPopupMessage = '';
   let popupLock = false;
+  let warningPlayed = false; // changed from warningPlaying to warningPlayed for clarity
 
   /* =======================
      UI helper functions
@@ -230,6 +265,9 @@ document.addEventListener('DOMContentLoaded', () => {
     hideTimer();
     hideWaitingMessage();
     hideAnswerReveal();
+
+    // Play BGM on waiting screens (admin overlay visible)
+    playBgm();
   }
 
   function hideAdminOverlay() {
@@ -237,6 +275,9 @@ document.addEventListener('DOMContentLoaded', () => {
     adminOverlay.style.display = 'none';
     adminOverlayText.textContent = '';
     questionDisplay.style.visibility = 'visible';
+
+    // Pause BGM when overlay hides (quiz active)
+    pauseBgm();
   }
 
   // Updated to toggle both opacity and visibility on waitingMessage
@@ -248,6 +289,9 @@ document.addEventListener('DOMContentLoaded', () => {
     waitingMessage.style.visibility = 'visible';
     loader.style.display = 'block';
     waitingShown = true;
+
+    // Play BGM when waiting message shows
+    playBgm();
   }
 
   function hideWaitingMessage() {
@@ -256,6 +300,9 @@ document.addEventListener('DOMContentLoaded', () => {
     waitingMessage.textContent = '';
     loader.style.display = 'none';
     waitingShown = false;
+
+    // Pause BGM when waiting message hides
+    pauseBgm();
   }
 
   function showAnswerReveal(text) {
@@ -278,6 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
     if (pulseInterval) { clearInterval(pulseInterval); pulseInterval = null; }
     isTimerRunning = false;
+    // Do not reset warningPlayed here; it is reset when timer starts
   }
 
   function updateTimerColor(sec) {
@@ -316,17 +364,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     isTimerRunning = true;
 
+    // Play BGM fade in
+    playBgm();
+
+    warningPlayed = false; // reset warning sound flag on new timer start
+
+    // Pulse effect at last 10 seconds (visual only)
     pulseInterval = setInterval(() => {
       if (timeLeft > 0 && timeLeft < 10) {
         timerCircle.style.transform = 'scale(1.06)';
         setTimeout(() => { if (timerCircle) timerCircle.style.transform = 'scale(1)'; }, 160);
       }
-    }, 900);
+    }, 1000);
 
+    // Main timer countdown and play warning sound once at 10 seconds left
     timerInterval = setInterval(() => {
       timeLeft = Math.max(0, timeLeft - 1);
       updateTimerColor(timeLeft);
       updateTimerText();
+
+      if (timeLeft === 10 && !warningPlayed) {
+        warningPlayed = true;
+        playSound(sounds.warning);
+      }
 
       if (timeLeft === 0) {
         timerEnded = true;
@@ -335,12 +395,16 @@ document.addEventListener('DOMContentLoaded', () => {
           showWaitingMessage('Waiting for admin to reveal answer');
           timerCircle.style.visibility = 'hidden';
         }
+        // Fade out BGM on timer end
+        pauseBgm();
       }
     }, 1000);
   }
 
   function pauseTimer() {
     clearTimerIntervals();
+    // Fade out BGM on pause
+    pauseBgm();
   }
 
   function hideTimer() {
@@ -350,6 +414,8 @@ document.addEventListener('DOMContentLoaded', () => {
     timeLeft = 30;
     timerEnded = false;
     waitingShown = false;
+    // Fade out BGM on hide timer
+    pauseBgm();
   }
 
   /* =======================
@@ -444,14 +510,23 @@ document.addEventListener('DOMContentLoaded', () => {
   db.collection('questions').orderBy('order').onSnapshot(snapshot => {
     questions = [];
     snapshot.forEach(doc => questions.push({ id: doc.id, ...doc.data() }));
-  }, err => console.error('questions snapshot error', err));
+  }, err => {
+    console.error('questions snapshot error', err);
+    playSound(sounds.error);
+  });
 
   db.collection('users').onSnapshot(snapshot => {
     users = [];
     snapshot.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
     renderLeaderboard();
     renderActiveUsers();
-  }, err => console.error('users snapshot error', err));
+    // Play success sound only once when user data updates (can be frequent)
+    // You might want to debounce or throttle this in production
+    playSound(sounds.success);
+  }, err => {
+    console.error('users snapshot error', err);
+    playSound(sounds.error);
+  });
 
   const liveDocRef = db.collection('live').doc('current');
 
@@ -485,12 +560,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data.isPaused) {
       if (!wasPaused) {
         showPopup('Quiz Paused', 'error');
+        playSound(sounds.error);
         wasPaused = true;
       }
       pauseTimer();
     } else {
       if (wasPaused) {
         showPopup('Quiz Resumed', 'info');
+        playSound(sounds.success);
       }
       wasPaused = false;
     }
@@ -516,6 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (err) {
       console.error('Error resolving activeQuestionRef', err);
+      playSound(sounds.error);
     }
 
     if (!qDoc || !qDoc.exists) {
@@ -574,12 +652,17 @@ document.addEventListener('DOMContentLoaded', () => {
       hideWaitingMessage();
       hideTimer();
       showPopup('Answer revealed', 'info');
+
+      // Play reveal sound on answer reveal
+      playSound(sounds.reveal);
+
       timerEnded = false;
       waitingShown = false;
     }
 
   }, (err) => {
     console.error('live doc snapshot error', err);
+    playSound(sounds.error);
   });
 
   /* =======================
@@ -587,6 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
      ======================= */
   window.addEventListener('beforeunload', () => {
     clearTimerIntervals();
+    pauseBgm();
   });
 
   /* =======================
