@@ -1,4 +1,4 @@
-// src/config/firebase_config.js
+// config/firebase_config.js
 
 // Firebase Config
 const firebaseConfig = {
