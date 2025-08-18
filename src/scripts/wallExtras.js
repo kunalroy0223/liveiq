@@ -14,13 +14,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const scrollWrapper = document.createElement('div');
     scrollWrapper.id = 'leaderboardScrollContainer';
     scrollWrapper.style.cssText = `
-      max-height: 500px;
+      max-height: calc(23 * 32px); /* 23 rows before scroll */
       overflow-y: auto;
       border: 1px solid #444;
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 6px;
-      background: #222;
+      background: linear-gradient(135deg, #1e1e1e, #2a2a2a);
       margin-bottom: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     `;
     leaderboardDisplay.parentNode.insertBefore(scrollWrapper, leaderboardDisplay);
     scrollWrapper.appendChild(leaderboardDisplay);
@@ -37,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
       width: 32px;
       height: 32px;
       border-radius: 50%;
-      background-color: #4caf50;
+      background: #4caf50;
       color: white;
       display: flex;
       justify-content: center;
@@ -45,14 +46,14 @@ document.addEventListener('DOMContentLoaded', () => {
       font-weight: 700;
       font-size: 1rem;
       user-select: none;
-      margin: 4px 6px 4px 0;
       flex-shrink: 0;
-      box-shadow: 0 0 6px #2e7d32;
+      border: 2px solid #222;
+      box-shadow: 0 0 6px rgba(0,0,0,0.4);
     `;
     return avatar;
   }
 
-  // Render active users as avatar circles
+  // Render active users as avatar circles (overlapping)
   function renderActiveUsersWithAvatars(users) {
     activeUsersDisplay.innerHTML = '';
 
@@ -65,21 +66,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.createElement('div');
     container.style.cssText = `
       display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      max-height: 120px;
-      overflow-y: auto;
+      align-items: center;
       padding: 4px;
-      border: 1px solid #444;
-      border-radius: 8px;
-      background: #222;
     `;
 
-    activeUsers.forEach(user => {
+    activeUsers.slice(0, 6).forEach((user, index) => {
       const name = user.username || user.name || 'Anon';
       const avatar = createAvatarCircle(name);
+      avatar.style.marginLeft = index === 0 ? "0px" : "-10px"; // overlap effect
       container.appendChild(avatar);
     });
+
+    if (activeUsers.length > 6) {
+      const more = document.createElement("div");
+      more.textContent = `+${activeUsers.length - 6}`;
+      more.style.cssText = `
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: black;
+        color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: 700;
+        margin-left: -10px;
+        border: 2px solid #222;
+      `;
+      container.appendChild(more);
+    }
 
     const countText = document.createElement('div');
     countText.textContent = `Active users: ${activeUsers.length}`;
@@ -87,13 +102,14 @@ document.addEventListener('DOMContentLoaded', () => {
       font-weight: 700;
       margin-bottom: 6px;
       color: #a8a8a8;
+      text-align: center;
     `;
 
     activeUsersDisplay.appendChild(countText);
     activeUsersDisplay.appendChild(container);
   }
 
-  // Render leaderboard WITHOUT avatar circles (plain names)
+  // Render leaderboard
   function renderLeaderboardPlain(users) {
     leaderboardDisplay.innerHTML = '';
 
@@ -112,37 +128,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const tbody = document.createElement('tbody');
 
-    // Sort users descending by score
+    // Sort users by score
     const sortedUsers = users.slice().sort((a, b) => (b.score || 0) - (a.score || 0));
     const medals = ['🥇', '🥈', '🥉'];
 
     sortedUsers.forEach((user, idx) => {
       const tr = document.createElement('tr');
 
-      // Position with medal icons for top 3
+      // Position column (medals for top 3)
       const posTd = document.createElement('td');
       posTd.className = 'pos-cell';
-      posTd.textContent = idx + 1;
       if (idx < 3) {
         const medalSpan = document.createElement('span');
         medalSpan.className = 'medal-icon medal-' + (idx + 1);
         medalSpan.textContent = medals[idx];
-        posTd.prepend(medalSpan);
+        posTd.textContent = ""; 
+        posTd.appendChild(medalSpan);
+      } else {
+        posTd.textContent = idx + 1;
       }
       tr.appendChild(posTd);
 
-      // Name plain text
+      // Name column
       const nameTd = document.createElement('td');
       nameTd.textContent = (user.username || user.name || 'Anonymous').toString();
       tr.appendChild(nameTd);
 
-      // Points cell
+      // Points column
       const pointsTd = document.createElement('td');
       pointsTd.textContent = Number.isFinite(user.score) ? user.score : 0;
       pointsTd.className = 'points-cell';
       tr.appendChild(pointsTd);
 
-      // Highlight top 3 rows
+      // Highlight top rows
       if (idx === 0) tr.classList.add('top1');
       else if (idx === 1) tr.classList.add('top2');
       else if (idx === 2) tr.classList.add('top3');
@@ -157,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Firestore connection
   const db = firebase.firestore();
 
-  // Listen to users collection updates and render
+  // Listen to users collection updates
   db.collection('users').onSnapshot(snapshot => {
     const users = [];
     snapshot.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
@@ -166,49 +184,78 @@ document.addEventListener('DOMContentLoaded', () => {
     renderActiveUsersWithAvatars(users);
   }, err => console.error('users snapshot error', err));
 
-  // Minimal styles for table & avatars
+  // Styles
   const style = document.createElement('style');
   style.textContent = `
     #leaderboardScrollContainer {
-      max-height: 500px;
+      max-height: calc(23 * 32px);
       overflow-y: auto;
       border: 1px solid #444;
-      border-radius: 8px;
-      padding: 6px;
-      background: #222;
-      margin-bottom: 12px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #1e1e1e, #2a2a2a);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      scrollbar-gutter: stable both-edges;
     }
+    /* Ensure only the wrapper scrolls (prevents double scrollbars) */
+    #leaderboard {
+      overflow: visible !important;
+      max-height: none !important;
+    }
+
     .leaderboard-table {
       width: 100%;
       border-collapse: collapse;
       color: #eee;
+      text-align: center; /* center align all text */
+      overflow: visible;  /* avoid inner scroll */
     }
-    .leaderboard-table th, .leaderboard-table td {
-      padding: 6px 12px;
+    /* Header styling in green like avatars */
+    .leaderboard-table th {
+      background: transparent;
+      color: #4caf50;            /* green text */
+      font-weight: 700;
+      padding: 6px 10px;
+      border-bottom: 2px solid #4caf50; /* green underline */
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .leaderboard-table td {
+      padding: 6px 10px;
       border-bottom: 1px solid #444;
     }
+    /* Reduce visual gap between Position and Name */
+    .leaderboard-table th:nth-child(1),
+    .leaderboard-table td:nth-child(1) {
+      width: 44px;               /* narrower position column */
+      padding-right: 6px;
+    }
+    .leaderboard-table th:nth-child(2),
+    .leaderboard-table td:nth-child(2) {
+      padding-left: 6px;         /* pulls name closer to position */
+    }
+
+    .leaderboard-table tr:hover {
+      background: rgba(255,255,255,0.05);
+      transition: 0.2s;
+    }
     .leaderboard-table .pos-cell {
-      width: 50px;
-      text-align: center;
       font-weight: 700;
     }
     .leaderboard-table .points-cell {
-      text-align: center;
       font-weight: 700;
     }
     .medal-icon {
-      margin-right: 6px;
-      font-size: 1.1rem;
+      font-size: 1.2rem;
     }
     .top1 {
-      background: #2e7d32a0;
+      background: rgba(46,125,50,0.6);
     }
     .top2 {
-      background: #558b2fa0;
+      background: rgba(85,139,47,0.6);
     }
     .top3 {
-      background: #f9a825a0;
-      color: #333;
+      background: rgba(249,168,37,0.7);
+      color: #222;
     }
   `;
   document.head.appendChild(style);
